@@ -13,19 +13,44 @@ function App() {
 
 function TodoListCard() {
     const [items, setItems] = React.useState(null);
+    const [socket, setSocket] = React.useState(null);
+    const [newItem, setNewItem] = React.useState({}); 
+
+    const handleMessage = React.useCallback((event) => {
+        console.log('Message from server ', event.data);
+        const data = JSON.parse(event.data);
+        const type = data.type;
+
+        switch(type) {
+            case 'getItems':
+                setItems(data.data);
+                break;
+            case 'addItem':
+                setItems([...items, data.data]);
+                setNewItem({});
+                break;
+        }
+    }
+    , []);
 
     React.useEffect(() => {
-        fetch('/items')
-            .then(r => r.json())
-            .then(setItems);
-    }, []);
+        const socket = new WebSocket(
+            'wss://tiix1v8303.execute-api.us-east-1.amazonaws.com/sample-api-sample-env-sample-stage/',
+        );
 
-    const onNewItem = React.useCallback(
-        newItem => {
-            setItems([...items, newItem]);
-        },
-        [items],
-    );
+        socket.addEventListener('message', handleMessage);
+
+        socket.addEventListener('open', (event) => {
+            console.log('Connected to WS Server');
+            socket.send(
+                JSON.stringify({
+                    action: 'getItems',
+                })
+            );
+        });
+
+        setSocket(socket);
+    }, []);
 
     const onItemUpdate = React.useCallback(
         item => {
@@ -51,11 +76,11 @@ function TodoListCard() {
 
     return (
         <React.Fragment>
-            <AddItemForm onNewItem={onNewItem} />
+            <AddItemForm socket={socket} newItemObj={newItem} />
             {items.length === 0 && (
                 <p className="text-center">No items yet! Add one above!</p>
             )}
-            {items.map(item => (
+            {items.map((item) => (
                 <ItemDisplay
                     item={item}
                     key={item.id}
@@ -67,26 +92,23 @@ function TodoListCard() {
     );
 }
 
-function AddItemForm({ onNewItem }) {
+function AddItemForm({ socket, newItemObj }) {
     const { Form, InputGroup, Button } = ReactBootstrap;
 
     const [newItem, setNewItem] = React.useState('');
     const [submitting, setSubmitting] = React.useState(false);
 
+    React.useEffect(() => {
+        setNewItem('');
+    }, [newItemObj]);
+
     const submitNewItem = e => {
         e.preventDefault();
         setSubmitting(true);
-        fetch('/items', {
-            method: 'POST',
-            body: JSON.stringify({ name: newItem }),
-            headers: { 'Content-Type': 'application/json' },
-        })
-            .then(r => r.json())
-            .then(item => {
-                onNewItem(item);
-                setSubmitting(false);
-                setNewItem('');
-            });
+        socket.send(JSON.stringify({
+            action: 'addItems',
+            name: newItem
+        }));
     };
 
     return (

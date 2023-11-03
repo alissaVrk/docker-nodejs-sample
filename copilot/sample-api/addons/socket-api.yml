@@ -1,0 +1,187 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Metadata:
+  Generator: "former2"
+Description: ""
+Parameters:
+  Name:
+    Type: "String"
+
+  Env:
+    Type: "String"
+
+  App:
+    Type: "String"
+
+Resources:
+  ApiGatewayV2Api:
+    Type: "AWS::ApiGatewayV2::Api"
+    Properties:
+      ApiKeySelectionExpression: "$request.header.x-api-key"
+      ProtocolType: "WEBSOCKET"
+      RouteSelectionExpression: "$request.body.action"
+      DisableExecuteApiEndpoint: false
+      Name: !Sub "${Name}-${Env}-${App}-socket-api"
+
+  ApiGatewayV2Integration:
+    Type: "AWS::ApiGatewayV2::Integration"
+    Properties:
+      ApiId: !Ref ApiGatewayV2Api
+      ConnectionType: "INTERNET"
+      IntegrationMethod: "GET"
+      IntegrationType: "HTTP"
+      IntegrationUri: !Sub "http://sample-publi-bfzuqmngf0ue-1832300586.${AWS::Region}.elb.amazonaws.com/items"
+      PassthroughBehavior: "WHEN_NO_MATCH"
+      TimeoutInMillis: 29000
+      PayloadFormatVersion: "1.0"
+
+  ApiGatewayV2Integration2:
+    Type: "AWS::ApiGatewayV2::Integration"
+    Properties:
+      ApiId: !Ref ApiGatewayV2Api
+      ConnectionType: "INTERNET"
+      IntegrationMethod: "POST"
+      IntegrationType: "HTTP"
+      IntegrationUri: !Sub "http://sample-Publi-bFZuQmnGf0ue-1832300586.${AWS::Region}.elb.amazonaws.com/items"
+      PassthroughBehavior: "WHEN_NO_MATCH"
+      TimeoutInMillis: 29000
+      PayloadFormatVersion: "1.0"
+
+  ApiGatewayV2Route:
+    Type: "AWS::ApiGatewayV2::Route"
+    Properties:
+      ApiId: !Ref ApiGatewayV2Api
+      ApiKeyRequired: false
+      AuthorizationType: "NONE"
+      RouteKey: "getItems"
+      RouteResponseSelectionExpression: "$default"
+      Target: !Sub "integrations/${ApiGatewayV2Integration3}"
+
+  MyRouteResponse:
+    Type: 'AWS::ApiGatewayV2::RouteResponse'
+    Properties:
+      RouteId: !Ref ApiGatewayV2Route
+      ApiId: !Ref ApiGatewayV2Api
+      RouteResponseKey: $default
+
+  ApiGatewayV2Route2:
+    Type: "AWS::ApiGatewayV2::Route"
+    Properties:
+      ApiId: !Ref ApiGatewayV2Api
+      ApiKeyRequired: false
+      AuthorizationType: "NONE"
+      RouteKey: "$default"
+      RouteResponseSelectionExpression: "$default"
+      Target: !Sub "integrations/${ApiGatewayV2Integration}"
+
+  ApiGatewayV2Route3:
+    Type: "AWS::ApiGatewayV2::Route"
+    Properties:
+      ApiId: !Ref ApiGatewayV2Api
+      ApiKeyRequired: false
+      AuthorizationType: "NONE"
+      RouteKey: "addItems"
+      RouteResponseSelectionExpression: "$default"
+      Target: !Sub "integrations/${ApiGatewayV2Integration2}"
+
+  MyRouteResponse3:
+    Type: 'AWS::ApiGatewayV2::RouteResponse'
+    Properties:
+      RouteId: !Ref ApiGatewayV2Route3
+      ApiId: !Ref ApiGatewayV2Api
+      RouteResponseKey: $default
+
+  ApiGatewayV2Integration3:
+    Type: "AWS::ApiGatewayV2::Integration"
+    Properties:
+      ApiId: !Ref ApiGatewayV2Api
+      ConnectionType: "INTERNET"
+      IntegrationMethod: "GET"
+      IntegrationType: "HTTP"
+      IntegrationUri: !Sub "http://sample-Publi-bFZuQmnGf0ue-1832300586.${AWS::Region}.elb.amazonaws.com/items"
+      PassthroughBehavior: "WHEN_NO_MATCH"
+      TimeoutInMillis: 29000
+      PayloadFormatVersion: "1.0"
+
+  ApiGatewayV2IntegrationResponse:
+    Type: "AWS::ApiGatewayV2::IntegrationResponse"
+    Properties:
+      ApiId: !Ref ApiGatewayV2Api
+      IntegrationId: !Ref ApiGatewayV2Integration
+      IntegrationResponseKey: "/2\\d\\d/"
+      ResponseTemplates: 
+        res: |
+            {
+                "res": "default",
+                "body": "$input.body"
+            }
+      TemplateSelectionExpression: "/res/"
+
+  ApiGatewayV2IntegrationResponse2:
+    Type: "AWS::ApiGatewayV2::IntegrationResponse"
+    Properties:
+      ApiId: !Ref ApiGatewayV2Api
+      IntegrationId: !Ref ApiGatewayV2Integration
+      IntegrationResponseKey: "$default"
+      ResponseTemplates: 
+        res: |
+            {
+                "default": "yes"
+            }
+      TemplateSelectionExpression: "/res/"
+
+  ApiGatewayV2IntegrationResponse3:
+    Type: "AWS::ApiGatewayV2::IntegrationResponse"
+    Properties:
+      ApiId: !Ref ApiGatewayV2Api
+      IntegrationId: !Ref ApiGatewayV2Integration2
+      IntegrationResponseKey: "/2\\d\\d/"
+      ResponseTemplates: 
+        "$default": |
+            {
+                "added": "item",
+                "type": "addItem",
+                "data": $input.body
+            }
+      TemplateSelectionExpression: "\\$default"
+
+  ApiGatewayV2IntegrationResponse4:
+    Type: "AWS::ApiGatewayV2::IntegrationResponse"
+    Properties:
+      ApiId: !Ref ApiGatewayV2Api
+      IntegrationId: !Ref ApiGatewayV2Integration3
+      IntegrationResponseKey: "/2\\d\\d/"
+      ResponseTemplates: 
+        "$default": |
+            {
+                "type": "getItems",
+                "data": $input.body
+            }
+      TemplateSelectionExpression: "\\$default"
+
+  ApiGatewayV2Stage:
+    Type: "AWS::ApiGatewayV2::Stage"
+    Properties:
+      StageName: !Sub "${Name}-${Env}-${App}-stage"
+      StageVariables: {}
+      ApiId: !Ref ApiGatewayV2Api
+      RouteSettings: {}
+      AutoDeploy: true
+      DefaultRouteSettings: 
+        DataTraceEnabled: true
+        DetailedMetricsEnabled: false
+        LoggingLevel: "INFO"
+
+  ApiGatewayV2Deployment:
+    Type: "AWS::ApiGatewayV2::Deployment"
+    DependsOn: 
+      - ApiGatewayV2Route
+      - ApiGatewayV2Route2
+      - ApiGatewayV2Route3
+    Properties:
+      ApiId: !Ref ApiGatewayV2Api
+      StageName: !Sub "${Name}-${Env}-${App}-stage"
+
+Outputs:
+  WebSocketURI:
+    Description: "The WSS protocol URI to connect to"
+    Value: !Sub "wss://${ApiGatewayV2Api}.execute-api.${AWS::Region}.amazonaws.com/${ApiGatewayV2Stage}"
