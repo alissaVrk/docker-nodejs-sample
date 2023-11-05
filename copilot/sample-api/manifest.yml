@@ -4,15 +4,18 @@
 
 # Your service name will be used in naming your resources like log groups, ECS services, etc.
 name: sample-api
-type: Load Balanced Web Service
+type: 'Load Balanced Web Service'
 
 # Distribute traffic to your service.
-http:
-  # Requests to this path will be forwarded to your service.
-  # To match all requests you can use the "/" path.
-  path: '/'
-  # You can specify a custom health check path. The default is "/".
-  # healthcheck: '/'
+http: false #no ALB
+
+nlb:
+  port: 80/tcp
+  target_port: 3000
+
+network:
+  vpc:
+    placement: 'private'  
 
 # Configuration for your containers and service.
 image:
@@ -26,8 +29,8 @@ memory: 512    # Amount of memory in MiB used by the task.
 platform: linux/x86_64  # See https://aws.github.io/copilot-cli/docs/manifest/lb-web-service/#platform
 count: 1       # Number of tasks that should be running in your service.
 exec: true     # Enable running commands in your container.
-network:
-  connect: true # Enable Service Connect for intra-environment traffic between services.
+
+
 
 # storage:
   # readonly_fs: true       # Limit to read-only access to mounted root filesystems.

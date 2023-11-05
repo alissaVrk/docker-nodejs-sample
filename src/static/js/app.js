@@ -25,7 +25,7 @@ function TodoListCard() {
             case 'getItems':
                 setItems(data.data);
                 break;
-            case 'addItem':
+            case 'addItems':
                 setItems([...items, data.data]);
                 setNewItem({});
                 break;
@@ -35,7 +35,7 @@ function TodoListCard() {
 
     React.useEffect(() => {
         const socket = new WebSocket(
-            'wss://tiix1v8303.execute-api.us-east-1.amazonaws.com/sample-api-sample-env-sample-stage/',
+            'wss://au5zzxxe8j.execute-api.us-east-1.amazonaws.com/sample-env-stage/',
         );
 
         socket.addEventListener('message', handleMessage);
