@@ -35,7 +35,7 @@ function TodoListCard() {
 
     React.useEffect(() => {
         const socket = new WebSocket(
-            'wss://au5zzxxe8j.execute-api.us-east-1.amazonaws.com/sample-env-stage/',
+            'wss://o5urrge9j0.execute-api.us-east-1.amazonaws.com/sample-env-stage/',
         );
 
         socket.addEventListener('message', handleMessage);

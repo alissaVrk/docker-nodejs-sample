@@ -40,6 +40,7 @@ export class TransformedStack extends cdk.Stack {
 
         const networkLoadBalancer = this.transformPublicNetworkLoadBalancerToInternal();
         const { link, api } = this.createApiAndVpcLink(networkLoadBalancer);
+        this.createConnectionRoutes(api, link, networkLoadBalancer);
         routes.forEach(routeInfo => this.createWebSocketRoute(api, link, networkLoadBalancer, routeInfo));
     }
     // make NLB internal
@@ -70,26 +71,25 @@ export class TransformedStack extends cdk.Stack {
 
         return { link, api };
     }
+
+    createConnectionRoutes(api: CfnApi, link: CfnVpcLink, nlb: CfnLoadBalancer) {
+        const routesInfo: RouteInfo[] = [{
+            action:'$connect',
+            httpMethod: 'POST',
+            path: 'connect',
+        }, {
+            action:'$disconnect',
+            httpMethod: 'POST',
+            path: 'disconnect',
+        }];
+
+        routesInfo.forEach(routeInfo => this.createRouteNoRes(api, link, nlb, routeInfo, routeInfo.action, true));
+    }
     
     createWebSocketRoute(api: CfnApi, link: CfnVpcLink, nlb: CfnLoadBalancer, routeInfo: RouteInfo) {
         const suffix = routeInfo.action;
         
-        const integration = new CfnIntegration(this, `Integration${suffix}`, {
-            apiId: api.ref,
-            integrationType: 'HTTP',
-            integrationUri: `http://${nlb.attrDnsName}/${routeInfo.path}`,
-            integrationMethod: routeInfo.httpMethod,
-            connectionType: 'VPC_LINK',
-            connectionId: link.ref,
-        });
-
-        const route = new CfnRoute(this, `Route${suffix}`, {
-            apiId: api.ref,
-            routeKey: routeInfo.action,
-            target: `integrations/${integration.ref}`,
-            authorizationType: 'NONE',
-            apiKeyRequired: false,
-        });
+        const {route, integration} = this.createRouteNoRes(api, link, nlb, routeInfo, suffix);
 
         const routeResponse = new CfnRouteResponse(this, `RouteResponse${suffix}`, {
             apiId: api.ref,
@@ -106,5 +106,29 @@ export class TransformedStack extends cdk.Stack {
             },
             templateSelectionExpression: "\\$default"
         });
+    }
+
+    createRouteNoRes(api: CfnApi, link: CfnVpcLink, nlb: CfnLoadBalancer, routeInfo: RouteInfo, suffix: string, isProxy?: boolean){
+        const integration = new CfnIntegration(this, `Integration${suffix}`, {
+            apiId: api.ref,
+            integrationType: isProxy ? 'HTTP_PROXY' : 'HTTP',
+            integrationUri: `http://${nlb.attrDnsName}/${routeInfo.path}`,
+            integrationMethod: routeInfo.httpMethod,
+            connectionType: 'VPC_LINK',
+            connectionId: link.ref,
+            requestParameters: {
+                'integration.request.header.sessionid': 'context.connectionId',
+            }
+        });
+
+        const route = new CfnRoute(this, `Route${suffix}`, {
+            apiId: api.ref,
+            routeKey: routeInfo.action,
+            target: `integrations/${integration.ref}`,
+            authorizationType: 'NONE',
+            apiKeyRequired: false,
+        });
+
+        return { route, integration };
     }
 }
