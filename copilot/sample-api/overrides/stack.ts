@@ -4,6 +4,7 @@ import { aws_elasticloadbalancingv2 as elbv2 } from 'aws-cdk-lib';
 import { CfnVpcLink } from 'aws-cdk-lib/aws-apigateway';
 import { CfnApi, CfnStage, CfnRoute, CfnIntegration, CfnRouteResponse, CfnIntegrationResponse } from 'aws-cdk-lib/aws-apigatewayv2';
 import { CfnLoadBalancer } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import { Effect, ManagedPolicy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 
 interface TransformedStackProps extends cdk.StackProps {
     readonly appName: string;
@@ -68,6 +69,40 @@ export class TransformedStack extends cdk.Stack {
             stageName: `${this.envName}-stage`,
             autoDeploy: true,
         });
+
+        const policy = new ManagedPolicy(this, 'ManagedPolicy', {
+            managedPolicyName: `${this.appName}-${this.envName}-policy`,
+            document: new PolicyDocument({
+                statements: [
+                    new cdk.aws_iam.PolicyStatement({
+                        effect: Effect.ALLOW,
+                        actions: [
+                            "execute-api:ManageConnections"
+                        ],
+                        resources: [
+                            `arn:aws:execute-api:${this.region}:${this.account}:${api.ref}/*`
+                        ]
+                    })
+                ]
+            })
+        });
+    
+        const taskRole = this.template.getResource("TaskRole") as cdk.aws_iam.CfnRole;
+        taskRole.managedPolicyArns = taskRole.managedPolicyArns || [];
+        taskRole.managedPolicyArns.push(policy.managedPolicyArn);
+
+        const taskDefinition = this.template.getResource("TaskDefinition") as cdk.aws_ecs.CfnTaskDefinition;
+        const defs = taskDefinition.containerDefinitions;
+        const definition = defs && ('length' in defs ? defs[0] : defs);
+        if (!definition) {
+            throw new Error("No container definition found");
+        }
+        const env = (definition as cdk.aws_ecs.CfnTaskDefinition.ContainerDefinitionProperty).environment as cdk.aws_ecs.CfnTaskDefinition.KeyValuePairProperty[];
+        env.push({
+            name: 'CONNECTION_URL',
+            value: `https://${api.ref}.execute-api.${this.region}.amazonaws.com/${stage.stageName}`,
+        });
+
 
         return { link, api };
     }
